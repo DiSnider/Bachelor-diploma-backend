@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+﻿using Newtonsoft.Json.Serialization;
+using System.Web.Http;
 using System.Web.Mvc;
 using System.Web.Routing;
 
@@ -12,7 +10,11 @@ namespace Diploma_backend.API
         protected void Application_Start()
         {
             AreaRegistration.RegisterAllAreas();
-            RouteConfig.RegisterRoutes(RouteTable.Routes);
+            GlobalConfiguration.Configure(WebApiConfig.Register);            
+
+            HttpConfiguration config = GlobalConfiguration.Configuration;
+            config.Formatters.JsonFormatter.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+            config.Formatters.JsonFormatter.UseDataContractJsonSerializer = false;
         }
     }
 }
