@@ -18,7 +18,7 @@ namespace Diploma_backend.API.SimulationLogic
         public SimulationProcessResult StartSimulationProcessSession()
         {
             bool @continue;
-            decimal meanIdleTimeForCurrentProcess;
+            (decimal, decimal) result;
             var currentRepairStations = new int[_distanceMatrix.RepairStationsCount];
 
             do
@@ -27,16 +27,17 @@ namespace Diploma_backend.API.SimulationLogic
                 currentRepairStations[0]++;
 
                 var simulationProcess = new SimulationProcess(_model, _distanceMatrix, currentRepairStations);
-                meanIdleTimeForCurrentProcess = simulationProcess.SimulateAndGetMeanObjectIdleTime();
+                result = simulationProcess.SimulateAndGetMeanObjectIdleTime();
 
-                @continue = meanIdleTimeForCurrentProcess > _model.PermissibleIdleTime;
+                @continue = result.Item1 > _model.PermissibleIdleTime || result.Item2 > _model.PermissibleConfirmationDelayTime;
             }
             while (@continue);
 
             return new SimulationProcessResult
             {
                 OptimalRepairShopsCountsByStations = currentRepairStations,
-                MeanIdleTime = meanIdleTimeForCurrentProcess
+                MeanIdleTime = result.Item1,
+                MeanConfirmationDelayTime = result.Item2
             };
         }
     }

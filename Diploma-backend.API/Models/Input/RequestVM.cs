@@ -9,5 +9,6 @@ namespace Diploma_backend.API.Models.Input
         public decimal RepairDuration { get; set; }
         public decimal MachineSpeed { get; set; }
         public decimal PermissibleIdleTime { get; set; }
+        public decimal PermissibleConfirmationDelayTime { get; set; }
     }
 }

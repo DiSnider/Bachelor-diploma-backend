@@ -3,5 +3,7 @@
     public class BackToStationRepairShopState : RepairShopState, IRepairShopStateWithTimeToChange
     {
         public decimal TimeLeft { get; set; }
+
+        public int LastRepairedObjectIndex { get; set; }
     }
 }

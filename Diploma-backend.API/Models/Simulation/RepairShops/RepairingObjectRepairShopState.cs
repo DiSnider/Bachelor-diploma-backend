@@ -4,6 +4,6 @@
     {
         public decimal TimeLeft { get; set; }
 
-        public TechnicalObject ObjectToRepair { get; set; }
+        public int ObjectToRepairIndex { get; set; }
     }
 }

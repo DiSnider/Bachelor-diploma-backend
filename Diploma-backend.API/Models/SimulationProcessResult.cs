@@ -5,5 +5,7 @@
         public int[] OptimalRepairShopsCountsByStations { get; set; }
 
         public decimal MeanIdleTime { get; set; }
+
+        public decimal MeanConfirmationDelayTime { get; set; }
     }
 }

@@ -4,6 +4,6 @@
     {
         public decimal TimeLeft { get; set; }
 
-        public TechnicalObject ObjectToArrive { get; set; }
+        public int ObjectToArriveIndex { get; set; }
     }
 }
