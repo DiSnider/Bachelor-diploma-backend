@@ -11,12 +11,24 @@ namespace Diploma_backend.API.Controllers
         [HttpPost]
         public async Task<IHttpActionResult> SimulateAndGetResult(RequestVM model)
         {
+            RecalculateMeasumentUnits(model);
+
             var distanceMatrix = await DistanceHelper.GetDistanceMatrix(model);
 
             var simulationProcessController = new SimulationProcessController(model, distanceMatrix);
             var simulationProcessResult = simulationProcessController.StartSimulationProcessSession();
 
             return Json(simulationProcessResult);
+        }
+
+        private void RecalculateMeasumentUnits(RequestVM model)
+        {
+            foreach (var technicalObject in model.TechnicalObjects)
+            {
+                technicalObject.Intensity = technicalObject.Intensity / 24;
+            }
+
+            model.MachineSpeed = model.MachineSpeed * 1000;
         }
     }
 }

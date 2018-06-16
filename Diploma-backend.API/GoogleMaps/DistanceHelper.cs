@@ -1,4 +1,5 @@
-﻿using System.Configuration;
+﻿using System;
+using System.Configuration;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -21,9 +22,21 @@ namespace Diploma_backend.API.GoogleMaps
 
             HttpResponseMessage response = null;
 
-            using (var client = new HttpClient())
+            try
             {
-                response = await client.GetAsync($@"https://maps.googleapis.com/maps/api/distancematrix/json?origins={encodedPointsString}&destinations={encodedPointsString}&key={ConfigurationManager.AppSettings["DistanceMatrixApiKey"]}");
+                using (var client = new HttpClient())
+                {
+                    response = await client.GetAsync(
+                        $@"https://maps.googleapis.com/maps/api/distancematrix/json?origins={
+                                encodedPointsString
+                            }&destinations={encodedPointsString}&key={
+                                ConfigurationManager.AppSettings["DistanceMatrixApiKey"]
+                            }");
+                }
+            }
+            catch (Exception e)
+            {
+                
             }
 
             var distanceMatrixResponse = JsonConvert.DeserializeObject<DistanceMatrixResponse>(await response.Content.ReadAsStringAsync());
