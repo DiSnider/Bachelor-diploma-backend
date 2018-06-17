@@ -17,6 +17,8 @@ namespace Diploma_backend.API
                 name: "DefaultApi",
                 routeTemplate: "{controller}/{action}"
             );
+
+            config.Filters.Add(new ExceptionHandlingAttribute());
         }
     }
 }

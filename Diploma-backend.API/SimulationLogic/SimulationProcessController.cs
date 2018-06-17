@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using Diploma_backend.API.Models;
 using Diploma_backend.API.Models.Input;
 
@@ -17,21 +18,24 @@ namespace Diploma_backend.API.SimulationLogic
 
         public SimulationProcessResult StartSimulationProcessSession()
         {
-            bool @continue;
-            (decimal, decimal) result;
-            var currentRepairStations = new int[_distanceMatrix.RepairStationsCount];
+            bool @continue = true;
+            (decimal, decimal) result = (0m, 0m);
+            int[] currentRepairStations = new int[_distanceMatrix.RepairStationsCount];
 
-            do
+            for (int i = 0; i < currentRepairStations.Length && @continue; i++)
             {
-                //ToDO changing currentRepairStations
-                currentRepairStations[0]++;
+                currentRepairStations = new int[_distanceMatrix.RepairStationsCount];
 
-                var simulationProcess = new SimulationProcess(_model, _distanceMatrix, currentRepairStations);
-                result = simulationProcess.SimulateAndGetMeanObjectIdleTime();
+                for (int j = 0; j < 5 && @continue; j++)
+                {
+                    currentRepairStations[i]++;
 
-                @continue = result.Item1 > _model.PermissibleIdleTime || result.Item2 > _model.PermissibleConfirmationDelayTime;
+                    var simulationProcess = new SimulationProcess(_model, _distanceMatrix, currentRepairStations);
+                    result = simulationProcess.SimulateAndGetMeanObjectIdleTime();
+
+                    @continue = result.Item1 > _model.PermissibleIdleTime || result.Item2 > _model.PermissibleConfirmationDelayTime;
+                }              
             }
-            while (@continue);
 
             return new SimulationProcessResult
             {

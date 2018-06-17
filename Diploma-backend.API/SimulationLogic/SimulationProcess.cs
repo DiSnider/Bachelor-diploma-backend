@@ -16,11 +16,11 @@ namespace Diploma_backend.API.SimulationLogic
         private List<TechnicalObject> technicalObjects;
         private List<RepairShop> repairShops;
         private readonly List<decimal> idleTimes;
-        private List<decimal> confirmationDelayTimes;
+        private readonly List<decimal> confirmationDelayTimes;
 
         private decimal time;
 
-        private const int SimulationDays = 365; //one year
+        private const int SimulationDays = 10000;
 
         public SimulationProcess(RequestVM model, DistanceMatrix distanceMatrix, int[] currentRepairStations)
         {
@@ -41,112 +41,118 @@ namespace Diploma_backend.API.SimulationLogic
         /// Simulation algorithm
         /// </summary>
         public (decimal, decimal) SimulateAndGetMeanObjectIdleTime()
-        {            
-            while (time < SimulationDays * 24)
+        {
+            try
             {
-                var minimalTechnicalObjectIndex = GetMinimalTechnicalObjectIndex();
-                var minimalRepairShopIndex = GetMinimalRepairShopIndex();
+                while (time < SimulationDays * 24)
+                {
+                    var (minimalTechnicalObjectIndex, minimalTechnicalObjectTime) = GetMinimalTechnicalObjectData();
+                    var (minimalRepairShopIndex, minimalRepairShopTime) = GetMinimalRepairShopData();
 
-                decimal timeStep;
-                var isMinTechnicalObject = false;
-                if (!minimalTechnicalObjectIndex.HasValue)
-                {
-                    // ReSharper disable once PossibleInvalidOperationException
-                    timeStep = (repairShops[minimalRepairShopIndex.Value].CurrentState as IRepairShopStateWithTimeToChange).TimeLeft;
-                }
-                else if (!minimalRepairShopIndex.HasValue)
-                {
-                    // ReSharper disable once PossibleInvalidOperationException
-                    timeStep = (technicalObjects[minimalTechnicalObjectIndex.Value].CurrentState as WorkingTechnicalObjectState).TimeToBreak;
-                    isMinTechnicalObject = true;
-                }
-                else
-                {
-                    var minimalTechnicalObjectTime = (technicalObjects[minimalTechnicalObjectIndex.Value].CurrentState as WorkingTechnicalObjectState).TimeToBreak;
-                    var minimalRepairShopTime = (repairShops[minimalRepairShopIndex.Value].CurrentState as IRepairShopStateWithTimeToChange).TimeLeft;
-                    timeStep = Math.Min(minimalTechnicalObjectTime, minimalRepairShopTime);
-
-                    isMinTechnicalObject = minimalTechnicalObjectTime <= minimalRepairShopTime;
-                }
-
-                (List<int>, List<int>) indexesNotToTouch = (new List<int>(), new List<int>());
-
-                //Event #1 Відмова і-того об'єкта
-                if (isMinTechnicalObject)
-                {
-                    indexesNotToTouch = ProcessObjectsBreaking(minimalTechnicalObjectIndex.Value);
-                }
-                //Event #2 Початок ремонту і-того об'єкта
-                else if (repairShops[minimalRepairShopIndex.Value].CurrentState is GoToObjectRepairShopState)
-                {
-                    indexesNotToTouch = ProcessRepairStart(minimalRepairShopIndex.Value);
-                }
-                //Event #3 Закінчення ремонту і-того об'єкта
-                else if (repairShops[minimalRepairShopIndex.Value].CurrentState is RepairingObjectRepairShopState)
-                {
-                    // ReSharper disable once PossibleInvalidOperationException
-                    indexesNotToTouch = ProcessRepairEnd(minimalRepairShopIndex.Value, minimalTechnicalObjectIndex.Value);
-                }
-                //Event #4 ЗПрибуття на свою базу і-тої машини
-                else if (repairShops[minimalRepairShopIndex.Value].CurrentState is BackToStationRepairShopState)
-                {
-                    indexesNotToTouch = ProcessBackToStation(minimalRepairShopIndex.Value);
-                }
-
-                for (int i = 0; i < technicalObjects.Count; i++)
-                {
-                    var technicalObject = technicalObjects[i];
-                    if (technicalObject.CurrentState is WorkingTechnicalObjectState && !indexesNotToTouch.Item1.Contains(i))
+                    decimal timeStep;
+                    var isMinTechnicalObject = false;
+                    if (!minimalTechnicalObjectIndex.HasValue)
                     {
-                        ((WorkingTechnicalObjectState) technicalObject.CurrentState).TimeToBreak -= timeStep;
+                        timeStep = minimalRepairShopTime.Value;
                     }
-                }
-
-                for (int i = 0; i < repairShops.Count; i++)
-                {
-                    var repairShop = repairShops[i];
-                    if (repairShop.CurrentState is IRepairShopStateWithTimeToChange && !indexesNotToTouch.Item2.Contains(i))
+                    else if (!minimalRepairShopIndex.HasValue)
                     {
-                        ((IRepairShopStateWithTimeToChange)repairShop.CurrentState).TimeLeft -= timeStep;
+                        timeStep = minimalTechnicalObjectTime.Value;
+                        isMinTechnicalObject = true;
                     }
+                    else
+                    { 
+                        timeStep = Math.Min(minimalTechnicalObjectTime.Value, minimalRepairShopTime.Value);
+
+                        isMinTechnicalObject = minimalTechnicalObjectTime <= minimalRepairShopTime;
+                    }
+
+                    (List<int>, List<int>) indexesNotToTouch = (new List<int>(), new List<int>());
+
+                    //Event #1 Відмова і-того об'єкта
+                    if (isMinTechnicalObject)
+                    {
+                        indexesNotToTouch = ProcessObjectsBreaking(minimalTechnicalObjectIndex.Value, timeStep);
+                    }
+                    //Event #2 Початок ремонту і-того об'єкта
+                    else if (repairShops[minimalRepairShopIndex.Value].CurrentState is GoToObjectRepairShopState)
+                    {
+                        indexesNotToTouch = ProcessRepairStart(minimalRepairShopIndex.Value);
+                    }
+                    //Event #3 Закінчення ремонту і-того об'єкта
+                    else if (repairShops[minimalRepairShopIndex.Value].CurrentState is RepairingObjectRepairShopState)
+                    {
+                        // ReSharper disable once PossibleInvalidOperationException
+                        indexesNotToTouch = ProcessRepairEnd(minimalRepairShopIndex.Value, timeStep);
+                    }
+                    //Event #4 ЗПрибуття на свою базу і-тої машини
+                    else if (repairShops[minimalRepairShopIndex.Value].CurrentState is BackToStationRepairShopState)
+                    {
+                        indexesNotToTouch = ProcessBackToStation(minimalRepairShopIndex.Value);
+                    }
+
+                    for (int i = 0; i < technicalObjects.Count; i++)
+                    {
+                        var technicalObject = technicalObjects[i];
+                        if (technicalObject.CurrentState is WorkingTechnicalObjectState && !indexesNotToTouch.Item1.Contains(i))
+                        {
+                            ((WorkingTechnicalObjectState)technicalObject.CurrentState).TimeToBreak -= timeStep;
+                        }
+                    }
+
+                    for (int i = 0; i < repairShops.Count; i++)
+                    {
+                        var repairShop = repairShops[i];
+                        if (repairShop.CurrentState is IRepairShopStateWithTimeToChange && !indexesNotToTouch.Item2.Contains(i))
+                        {
+                            ((IRepairShopStateWithTimeToChange)repairShop.CurrentState).TimeLeft -= timeStep;
+                        }
+                    }
+
+                    time += timeStep;
                 }
 
-                time += timeStep;
+                var meanIdleTime = idleTimes.Sum() / idleTimes.Count;
+                var confirmationDelayTime = confirmationDelayTimes.Sum() / confirmationDelayTimes.Count;
+
+                return (meanIdleTime, confirmationDelayTime);
             }
-
-            var meanIdleTime = idleTimes.Sum() / idleTimes.Count;
-            var confirmationDelayTime = confirmationDelayTimes.Sum() / confirmationDelayTimes.Count;
-
-            return (meanIdleTime, confirmationDelayTime);
+         
+            // ReSharper disable once RedundantCatchClause
+            catch (Exception e)
+            { throw; }
         }
 
         #region Events handling
 
-        private (List<int>, List<int>) ProcessObjectsBreaking(int minimalTechnicalObjectIndex)
+        private (List<int>, List<int>) ProcessObjectsBreaking(int minimalTechnicalObjectIndex, decimal timeStep)
         {
-            technicalObjects[minimalTechnicalObjectIndex].CurrentState = new BrokenTechnicalObjectState();
-            var breakingTechnicalObjectState = (BrokenTechnicalObjectState) technicalObjects[minimalTechnicalObjectIndex].CurrentState;
+            //here it is still working 
+            var technicalObject = technicalObjects[minimalTechnicalObjectIndex];
 
-            var nearestFreeRepairShopIndex = GetNearestFreeRepairShopIndex(minimalTechnicalObjectIndex);
+            technicalObject.CurrentState = new BrokenTechnicalObjectState();
+            var breakingTechnicalObjectState = (BrokenTechnicalObjectState)technicalObject.CurrentState;
+
+            var (nearestFreeRepairShopIndex, nearestShopDistance) = GetNearestFreeRepairShopIndexAndDistance(minimalTechnicalObjectIndex);
 
             //якщо є вільні ремонтні майстерні
             if (nearestFreeRepairShopIndex >= 0)
             {
                 confirmationDelayTimes.Add(0);
-                breakingTechnicalObjectState.IdleTimeStamp = time;
+                breakingTechnicalObjectState.IdleTimeStamp = time + timeStep;
 
                 var nearestFreeRepairShop = repairShops[nearestFreeRepairShopIndex];
                 nearestFreeRepairShop.CurrentState = new GoToObjectRepairShopState
                 {
                     ObjectToArriveIndex = minimalTechnicalObjectIndex,
-                    TimeLeft = _distanceMatrix.Matrix[_distanceMatrix.TechnicalObjectsCount + nearestFreeRepairShop.RepairStationNumber, minimalTechnicalObjectIndex] / _model.MachineSpeed
+                    TimeLeft = nearestShopDistance / _model.MachineSpeed
                 };
 
                 return (new List<int> {minimalTechnicalObjectIndex}, new List<int> { nearestFreeRepairShopIndex });
             }
             else
             {
-                breakingTechnicalObjectState.ConfirmationDelayTimeStamp = time;
+                breakingTechnicalObjectState.ConfirmationDelayTimeStamp = time + timeStep;
 
                 return (new List<int> { minimalTechnicalObjectIndex }, new List<int>());
             }
@@ -166,12 +172,15 @@ namespace Diploma_backend.API.SimulationLogic
             return (new List<int>(), new List<int> { minimalRepairShopIndex });
         }
 
-        private (List<int>, List<int>) ProcessRepairEnd(int minimalRepairShopIndex, int minimalTechnicalObjectIndex)
-        {           
-            var technicalObject = technicalObjects[minimalTechnicalObjectIndex];
-            var brokenTechnicalObjectState = (BrokenTechnicalObjectState) technicalObject.CurrentState;
+        private (List<int>, List<int>) ProcessRepairEnd(int minimalRepairShopIndex, decimal timeStep)
+        {
+            var repairShop = repairShops[minimalRepairShopIndex];
+
+            var technicalObjectIndex = ((RepairingObjectRepairShopState) repairShop.CurrentState).ObjectToRepairIndex;
+            var technicalObject = technicalObjects[technicalObjectIndex];
+            var brokenTechnicalObjectState = (BrokenTechnicalObjectState)technicalObject.CurrentState;
             // ReSharper disable once PossibleInvalidOperationException
-            idleTimes.Add(time - brokenTechnicalObjectState.IdleTimeStamp.Value);
+            idleTimes.Add(time + timeStep - brokenTechnicalObjectState.IdleTimeStamp.Value);
             brokenTechnicalObjectState.IdleTimeStamp = null;
 
             technicalObject.CurrentState = new WorkingTechnicalObjectState
@@ -179,33 +188,31 @@ namespace Diploma_backend.API.SimulationLogic
                 TimeToBreak = ExponentialValueGenerator.Get(technicalObject.Intensity)
             };
 
-            var repairShop = repairShops[minimalRepairShopIndex];
-
             var newBrokenTechnicalObjectIndex = GetBrokenTechnicalObjectIndexFromQueue();
             //якщо є зламані об'єкти, то отримуємо найперший із них
             if (newBrokenTechnicalObjectIndex >= 0)
             {
                 var newBrokenTechnicalObject = technicalObjects[newBrokenTechnicalObjectIndex];
                 // ReSharper disable once PossibleInvalidOperationException
-                confirmationDelayTimes.Add(time - ((BrokenTechnicalObjectState)newBrokenTechnicalObject.CurrentState).IdleTimeStamp.Value);
-                ((BrokenTechnicalObjectState) newBrokenTechnicalObject.CurrentState).IdleTimeStamp = time;
+                confirmationDelayTimes.Add(time + timeStep - ((BrokenTechnicalObjectState)newBrokenTechnicalObject.CurrentState).ConfirmationDelayTimeStamp.Value);
+                ((BrokenTechnicalObjectState) newBrokenTechnicalObject.CurrentState).IdleTimeStamp = time + timeStep;
 
                 repairShop.CurrentState = new GoToObjectRepairShopState
                 {
                     ObjectToArriveIndex = newBrokenTechnicalObjectIndex,
-                    TimeLeft = _distanceMatrix.Matrix[minimalTechnicalObjectIndex, newBrokenTechnicalObjectIndex]
+                    TimeLeft = _distanceMatrix.Matrix[technicalObjectIndex, newBrokenTechnicalObjectIndex] / _model.MachineSpeed
                 };
             }
             else //їдемо на базу
             {
                 repairShop.CurrentState = new BackToStationRepairShopState
                 {
-                    LastRepairedObjectIndex = minimalTechnicalObjectIndex,
-                    TimeLeft = _distanceMatrix.Matrix[_distanceMatrix.TechnicalObjectsCount + repairShop.RepairStationNumber, minimalTechnicalObjectIndex] / _model.MachineSpeed
+                    LastRepairedObjectIndex = technicalObjectIndex,
+                    TimeLeft = _distanceMatrix.Matrix[_distanceMatrix.TechnicalObjectsCount + repairShop.RepairStationNumber, technicalObjectIndex] / _model.MachineSpeed
                 };
             }
 
-            return (new List<int> { minimalTechnicalObjectIndex }, new List<int> { minimalRepairShopIndex });
+            return (new List<int> { technicalObjectIndex }, new List<int> { minimalRepairShopIndex });
         }
 
         private (List<int>, List<int>) ProcessBackToStation(int minimalRepairShopIndex)
@@ -220,12 +227,12 @@ namespace Diploma_backend.API.SimulationLogic
 
         #region Helper methods
 
-        private int GetNearestFreeRepairShopIndex(int minimalTechnicalObjectIndex)
+        private (int, decimal) GetNearestFreeRepairShopIndexAndDistance(int minimalTechnicalObjectIndex)
         {
             var candidates = repairShops.Where(r => r.CurrentState is OnStationRepairShopState || r.CurrentState is BackToStationRepairShopState).ToList();
             if (candidates.Count == 0)
             {
-                return -1;
+                return (-1, 0);
             }
 
             var distances = new List<decimal>();
@@ -243,8 +250,9 @@ namespace Diploma_backend.API.SimulationLogic
             }
 
             //індекс елемента з мінімальною відстанню
-            var index = distances.IndexOf(distances.Min());
-            return repairShops.IndexOf(candidates[index]);
+            var minDistance = distances.Min();
+            var index = distances.IndexOf(minDistance);
+            return (repairShops.IndexOf(candidates[index]), minDistance);
         }
 
         private int GetBrokenTechnicalObjectIndexFromQueue()
@@ -262,7 +270,7 @@ namespace Diploma_backend.API.SimulationLogic
             foreach (TechnicalObject t in brokenTechnicalObjects)
             {
                 // ReSharper disable once PossibleInvalidOperationException
-                confirmationDelays.Add(((BrokenTechnicalObjectState)t.CurrentState).IdleTimeStamp.Value);
+                confirmationDelays.Add(((BrokenTechnicalObjectState)t.CurrentState).ConfirmationDelayTimeStamp.Value);
             }
 
             //індекс елемента з мінімальним моментом часу
@@ -270,9 +278,9 @@ namespace Diploma_backend.API.SimulationLogic
             return technicalObjects.IndexOf(brokenTechnicalObjects[index]);
         }
 
-        private int? GetMinimalTechnicalObjectIndex()
+        private (int?, decimal?) GetMinimalTechnicalObjectData()
         {
-            int? minimalTechnicalObjectIndex = 0;
+            int? minimalTechnicalObjectIndex = null;
             var workingTechnicalObjects = technicalObjects.Where(t => t.CurrentState is WorkingTechnicalObjectState).ToList();
             if (workingTechnicalObjects.Any())
             {
@@ -286,14 +294,16 @@ namespace Diploma_backend.API.SimulationLogic
                         minimalTechnicalObjectIndex = i;
                     }
                 }
+
+                return (minimalTechnicalObjectIndex, minimalTimeToBreak);
             }
 
-            return minimalTechnicalObjectIndex;
+            return (null, null);
         }
 
-        private int? GetMinimalRepairShopIndex()
+        private (int?, decimal?) GetMinimalRepairShopData()
         {
-            int? minimalRepairShopIndex = 0;
+            int? minimalRepairShopIndex = null;
             var timedRepairShops = repairShops.Where(t => t.CurrentState is IRepairShopStateWithTimeToChange).ToList();
             if (timedRepairShops.Any())
             {
@@ -307,9 +317,11 @@ namespace Diploma_backend.API.SimulationLogic
                         minimalRepairShopIndex = i;
                     }
                 }
+
+                return (minimalRepairShopIndex, minimalTimeLeft);
             }
 
-            return minimalRepairShopIndex;
+            return (null, null);
         }
 
         private (List<TechnicalObject>, List<RepairShop>) SetupInitialStates()

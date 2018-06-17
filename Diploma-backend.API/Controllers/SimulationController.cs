@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Net;
+using System.Threading.Tasks;
 using System.Web.Http;
 using Diploma_backend.API.GoogleMaps;
 using Diploma_backend.API.Models.Input;
@@ -16,11 +17,20 @@ namespace Diploma_backend.API.Controllers
             var distanceMatrix = await DistanceHelper.GetDistanceMatrix(model);
 
             var simulationProcessController = new SimulationProcessController(model, distanceMatrix);
-            var simulationProcessResult = simulationProcessController.StartSimulationProcessSession();
 
-            return Json(simulationProcessResult);
+            var delayTask = Task.Delay(10000);
+            var simulationTask = Task.Run(() => simulationProcessController.StartSimulationProcessSession());
+
+            var firstTask = await Task.WhenAny(simulationTask, delayTask);
+
+            if (firstTask == simulationTask)
+            {
+                return Json(simulationTask.Result);
+            }
+
+            return Content(HttpStatusCode.Accepted, "Для даних об'єктів і ремонтних станцій за допустимий час не вдалось знайти розв'язку");
         }
-
+        
         private void RecalculateMeasumentUnits(RequestVM model)
         {
             foreach (var technicalObject in model.TechnicalObjects)
