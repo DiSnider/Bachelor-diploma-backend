@@ -40,7 +40,7 @@ namespace Diploma_backend.API.SimulationLogic
         /// <summary>
         /// Simulation algorithm
         /// </summary>
-        public (decimal, decimal) SimulateAndGetMeanObjectIdleTime()
+        public (decimal, decimal) SimulateAndGetMeanCharacteristics()
         {
             try
             {

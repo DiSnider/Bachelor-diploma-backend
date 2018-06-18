@@ -31,7 +31,7 @@ namespace Diploma_backend.API.SimulationLogic
                     currentRepairStations[i]++;
 
                     var simulationProcess = new SimulationProcess(_model, _distanceMatrix, currentRepairStations);
-                    result = simulationProcess.SimulateAndGetMeanObjectIdleTime();
+                    result = simulationProcess.SimulateAndGetMeanCharacteristics();
 
                     @continue = result.Item1 > _model.PermissibleIdleTime || result.Item2 > _model.PermissibleConfirmationDelayTime;
                 }              
