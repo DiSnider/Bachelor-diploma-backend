@@ -23,7 +23,7 @@ namespace Diploma_backend.API.Controllers
 
             var firstTask = await Task.WhenAny(simulationTask, delayTask);
 
-            if (firstTask == simulationTask)
+            if (firstTask == simulationTask && simulationTask.Result != null)
             {
                 return Json(simulationTask.Result);
             }

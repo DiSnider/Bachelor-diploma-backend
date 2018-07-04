@@ -26,15 +26,27 @@ namespace Diploma_backend.API.SimulationLogic
             {
                 currentRepairStations = new int[_distanceMatrix.RepairStationsCount];
 
-                for (int j = 0; j < 5 && @continue; j++)
+                for (int j = 0; j < 20 && @continue; j++)
                 {
-                    currentRepairStations[i]++;
+                    if (j < 10)
+                        currentRepairStations[i]++;
+                    else if (i + 1 < currentRepairStations.Length)
+                        currentRepairStations[i+1]++;
+                    else if (i > 1)
+                        currentRepairStations[i - 1]++;
+                    else
+                        currentRepairStations[i]++;
 
                     var simulationProcess = new SimulationProcess(_model, _distanceMatrix, currentRepairStations);
                     result = simulationProcess.SimulateAndGetMeanCharacteristics();
 
                     @continue = result.Item1 > _model.PermissibleIdleTime || result.Item2 > _model.PermissibleConfirmationDelayTime;
                 }              
+            }
+
+            if (@continue)
+            {
+                return null;
             }
 
             return new SimulationProcessResult
